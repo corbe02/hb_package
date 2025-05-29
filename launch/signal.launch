@@ -1,0 +1,4 @@
+<launch>
+    <node pkg="hb_package" name="ecg_simulator_plotter" type="ecg_plotter_node.py" output="screen">
+    </node>
+</launch>
