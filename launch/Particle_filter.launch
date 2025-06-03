@@ -1,0 +1,4 @@
+<launch>
+    <node pkg="hb_package" name="particle_filter" type="particle_filter_node" output="screen">
+    </node>
+</launch>
