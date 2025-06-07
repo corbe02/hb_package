@@ -11,28 +11,37 @@ def ecg_node():
     ecg_pub = rospy.Publisher('ecg_signal', Float32, queue_size=10)
 
     try:
-        duration = 10  # secondi
+        duration = 5  # secondi
         sampling_rate = 1000  # Hz
         ecg = nk.ecg_simulate(duration=duration, sampling_rate=sampling_rate, method="ecgsyn")
         t = np.linspace(0, duration, len(ecg))
 
-        # NOISE ADDITION
-        # 1. Low-frequency drift
-        drift = 0.2 * np.sin(2 * np.pi * 0.5 * t)
+        mean = np.mean(ecg)
+        std = np.std(ecg)
+        print(mean)
+        print(std)
 
-        # 2. Laplace noise
-        laplace_noise = np.random.laplace(loc=0.0, scale=0.1, size=t.shape)
+        noise_std = 0.05  
+        noise = np.random.normal(loc=0.0, scale=noise_std, size=len(ecg))
+        noisy_heartbeat = ecg + noise
 
-        # 3. Impulse noise
-        impulses = np.zeros_like(t)
-        impulse_indices = np.random.choice(len(t), size=10, replace=False)
-        impulses[impulse_indices] = np.random.uniform(-1, 1, size=10)
+        # # NOISE ADDITION
+        # # 1. Low-frequency drift
+        # drift = 0.2 * np.sin(2 * np.pi * 0.5 * t)
 
-        # 4. Multiplicative noise
-        multiplicative_envelope = 1 + 0.1 * np.random.randn(*t.shape)
+        # # 2. Laplace noise
+        # laplace_noise = np.random.laplace(loc=0.0, scale=0.1, size=t.shape)
 
-        # Final noisy signal
-        noisy_heartbeat = (ecg + drift + laplace_noise + impulses) * multiplicative_envelope
+        # # 3. Impulse noise
+        # impulses = np.zeros_like(t)
+        # impulse_indices = np.random.choice(len(t), size=10, replace=False)
+        # impulses[impulse_indices] = np.random.uniform(-1, 1, size=10)
+
+        # # 4. Multiplicative noise
+        # multiplicative_envelope = 1 + 0.1 * np.random.randn(*t.shape)
+
+        # # Final noisy signal
+        # noisy_heartbeat = (ecg + drift + laplace_noise + impulses) * multiplicative_envelope
 
         plt.figure(figsize=(12, 5))
         plt.plot(t, ecg, label="ECG originale", alpha=0.7)

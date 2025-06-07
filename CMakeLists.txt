@@ -50,6 +50,7 @@ target_link_libraries(particle_filter_node
 ## Installa gli script Python
 catkin_install_python(PROGRAMS
   scripts/ecg_plotter_node.py
+  scripts/plot.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

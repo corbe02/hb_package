@@ -6,6 +6,7 @@
 #include <vector>
 #include "particle.hpp"
 #include "utils.hpp"
+#include <fstream>
 
 
 
@@ -20,6 +21,7 @@ private:
     ros::Publisher pub;
     ros::NodeHandle private_nh_;         
     ros::Subscriber image_sub_; 
+    std::ofstream log_file;
 
     std::vector<Particle> particles;
     int N;
