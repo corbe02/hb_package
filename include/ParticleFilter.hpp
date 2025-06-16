@@ -29,6 +29,13 @@ private:
     double measNoise;
     double meanInit, stdInit;
     double measurementNoise;
+    double ampMean;
+    double ampStd;
+    double freqMean;
+    double freqStd;
+    double samplingRate;
+    double f_noise;
+    double A_noise;
 
     void init();
     void normalizeWeights();

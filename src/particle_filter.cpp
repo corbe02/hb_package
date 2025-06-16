@@ -24,7 +24,15 @@ ParticleFilter::ParticleFilter(ros::NodeHandle &nh,int numParticles, double init
     particles.resize(N);
 
     processNoise = 0.05;
-    measurementNoise = 0.2;
+    measurementNoise = 0.05;
+    ampMean = 0.3;
+    ampStd = 0.05;
+    freqMean = 1; //Hz
+    freqStd = 0.2;
+    samplingRate = 60; //Hz
+    f_noise = 0.05;
+    A_noise = 0.05;
+
     log_file.open("/tmp/particle_filter_log.csv");
 
 
@@ -37,24 +45,39 @@ ParticleFilter::ParticleFilter(ros::NodeHandle &nh,int numParticles, double init
 
 void ParticleFilter::init() {
     for (int i = 0; i < N; ++i) {
-        double state = sampleNormal(meanInit, stdInit); //--> valori presi da ecg plotter node su media e deviazione del segnare originale
-        particles[i] = Particle(state, 1.0 / N);
+
+        //double state = sampleNormal(meanInit, stdInit); //--> valori presi da ecg plotter node su media e deviazione del segnare originale
+        double A = sampleNormal(ampMean, ampStd);
+        double f = sampleNormal(freqMean, freqStd);
+        double phi = sampleUniform(0.0, 2 * M_PI);     // fase iniziale casuale
+        particles[i] = Particle(A,f,phi, 1.0 / N);
     }
 }
 
 void ParticleFilter::predict(double processNoise) {
     for (auto& p : particles) {
-        // modello semplice: identità + rumore --> non stiamo considerando un modello di ecg 
+        // modello semplice: identità + rumore --> non stiamo considerando un modello di ecg --> come considerare un modello che non dovrebbbe cambiare mai
+        // e se cambia è solo per il ruumore
         // che modello usiamo qui???
-        p.state += sampleNormal(0.0, processNoise);
+        //p.state += sampleNormal(0.0, processNoise);
+        double dt = 1.0 / samplingRate;
+        p.phi += 2 * M_PI * p.f * dt;  // 2*pi*f*dt+phi_0
+        p.phi = fmod(p.phi, 2 * M_PI); // mantieni phi tra 0 e 2pi
+
+        p.A += sampleNormal(0.0, A_noise);
+        p.f += sampleNormal(0.0, f_noise);
     }
 }
 
 void ParticleFilter::updateWeights(double measurement, double measNoiseStd) {
     for (auto& p : particles) {
         // aggiorno i pesi w in base alle misurazioni --> probabilità che una stima fatta con predict sia correttta data la misura 
-        double likelihood = normalPDF(measurement, p.state, measNoiseStd); 
+        //double likelihood = normalPDF(measurement, p.state, measNoiseStd); 
         // p.state viene considerata come la media e measNoiseStd come la varianza 
+        //p.weight *= likelihood;
+
+        double predicted_z = p.A * sin(p.phi);
+        double likelihood = normalPDF(measurement, predicted_z, measNoiseStd);
         p.weight *= likelihood;
     }
 }
@@ -93,10 +116,16 @@ double ParticleFilter::estimate() const {
     // calcolo la media ponderata --> per avere la stima migliore della posizione attuale 
     // dovrebbe migliorare con il tempo 
     double estimate = 0.0;
+    //for (const auto& p : particles) {
+        //estimate += p.state * p.weight;
+    //}
+    //return estimate;
+    double estimate_z = 0.0;
     for (const auto& p : particles) {
-        estimate += p.state * p.weight;
+        estimate_z += p.weight * (p.A * sin(p.phi));
     }
-    return estimate;
+    return estimate_z;
+
 }
 
 
@@ -107,13 +136,13 @@ void ParticleFilter::imageCallback(const std_msgs::Float32::ConstPtr &msg) {
     // prediction --> in cui uso il modello
     // update --> in cui integro con le misurazioni z 
 
-    // Passo 1: prediction (modello di transizione)
+    // passo 1: prediction (modello di transizione)
     predict(processNoise); 
 
-    // Passo 2: update (basato sulla misura) 
+    // passo 2: update (basato sulla misura) 
     updateWeights(z, measurementNoise); 
 
-    // Passo 3: normalizzazione
+    // passo 3: normalizzazione
     normalizeWeights();
 
     // Passo 4: resampling
@@ -123,7 +152,7 @@ void ParticleFilter::imageCallback(const std_msgs::Float32::ConstPtr &msg) {
     float est = estimate();
 
 
-    // salvo il valore in un file così poi farò il plot
+    // salvo il valore in un file così poi pplot con plot.py
     if (log_file.is_open()) {
     log_file << ros::Time::now() << "," << z << "," << estimate() << "\n";
     }

@@ -19,4 +19,4 @@ if os.path.isfile(log_path) and os.path.getsize(log_path) > 0:
     else:
         print("⚠️ Il file esiste ma non contiene dati.")
 else:
-    print("❌ Il file di log non esiste o è vuoto.")
+    print("Il file di log non esiste o è vuoto.")

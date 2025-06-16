@@ -11,6 +11,12 @@ double sampleNormal(double mu, double sigma) {
     return dist(gen);
 }
 
+
+double sampleUniform(double a, double b) {
+    std::uniform_real_distribution<> dis(a, b);
+    return dis(gen);
+}
+
 // FUnzione per calcolare la funzione di densità di probabilità (PDF) di una distribuzione normale (gaussiana) in un punto x.
 // La funzione di densità di probabilità (in inglese PDF, Probability Density Function) 
 //descrive come è distribuita la probabilità su una variabile casuale continua.

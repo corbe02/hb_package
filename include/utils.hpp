@@ -6,6 +6,8 @@
 // Campiona un numero da una normale N(mu, sigma)
 double sampleNormal(double mu, double sigma);
 
+double sampleUniform(double a, double b);
+
 // Valuta la densità della normale N(mu, sigma) in x
 double normalPDF(double x, double mu, double sigma);
 

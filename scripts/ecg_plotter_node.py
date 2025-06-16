@@ -12,7 +12,7 @@ def ecg_node():
 
     try:
         duration = 5  # secondi
-        sampling_rate = 1000  # Hz
+        sampling_rate = 60 # Hz
         ecg = nk.ecg_simulate(duration=duration, sampling_rate=sampling_rate, method="ecgsyn")
         t = np.linspace(0, duration, len(ecg))
 
@@ -21,7 +21,7 @@ def ecg_node():
         print(mean)
         print(std)
 
-        noise_std = 0.05  
+        noise_std = 0.05 
         noise = np.random.normal(loc=0.0, scale=noise_std, size=len(ecg))
         noisy_heartbeat = ecg + noise
 
