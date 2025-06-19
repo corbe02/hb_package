@@ -18,9 +18,9 @@ double sampleUniform(double a, double b) {
 }
 
 // FUnzione per calcolare la funzione di densità di probabilità (PDF) di una distribuzione normale (gaussiana) in un punto x.
-// La funzione di densità di probabilità (in inglese PDF, Probability Density Function) 
+// La funzione di densità di probabilità 
 //descrive come è distribuita la probabilità su una variabile casuale continua.
-// Immagina di avere una curva a campana (la famosa curva normale). L'altezza della curva in un punto x è la densità di probabilità in quel punto.
+// Immagina di avere una curva a campana. L'altezza della curva in un punto x è la densità di probabilità in quel punto.
 double normalPDF(double x, double mu, double sigma) {
     double coeff = 1.0 / (sigma * std::sqrt(2.0 * M_PI));
     double exponent = -0.5 * std::pow((x - mu) / sigma, 2);

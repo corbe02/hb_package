@@ -30,7 +30,7 @@ struct Particle {
         double x_ = 0.0, double y_ = 1.0, double z_ = 0.0,
         double a_p_ = 1.2, double a_q_ = -5.0, double a_r_ = 30.0, double a_s_ = -7.5, double a_t_ = 0.75,
         double b_p_ = 0.25, double b_q_ = 0.1, double b_r_ = 0.1, double b_s_ = 0.1, double b_t_ = 0.4,
-        double omega_ = 2 * M_PI,  // 1 Hz
+        double omega_ = 2 * M_PI,
         double weight_ = 1.0
     )
     : x(x_), y(y_), z(z_),

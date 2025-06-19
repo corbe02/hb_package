@@ -24,7 +24,7 @@ ParticleFilter::ParticleFilter(ros::NodeHandle &nh,int numParticles)
     init();
     image_sub_ = private_nh_.subscribe("ecg_signal", 1, &ParticleFilter::imageCallback, this);
     
-    processNoise = 0.05;
+    processNoise = 0.5;
     measurementNoise = 0.7;
     samplingRate = 60; //Hz
 
@@ -160,13 +160,8 @@ void ParticleFilter::resample() {
 
 double ParticleFilter::estimate() const {
 
-    // calcolo la media ponderata --> per avere la stima migliore della posizione attuale 
-    // dovrebbe migliorare con il tempo 
-    // double estimate = 0.0;
-    // //for (const auto& p : particles) {
-    //     //estimate += p.state * p.weight;
-    // //}
-    // //return estimate;
+    // IDea1 : faccio la media ponderata
+
     // double estimate_z = 0.0;
     // for (const auto& p : particles) {
     //     //ROS_INFO_STREAM("p.z: " << p.z << ", p.w: " << p.weight);
@@ -178,7 +173,8 @@ double ParticleFilter::estimate() const {
     // });
     // return best->z;
 
-        double weight_sum = 0.0;
+    // IDea2: faccio la media ponderata tra i migliori 
+    double weight_sum = 0.0;
     for (const auto& p : particles) weight_sum += p.weight;
 
     double avg_weight = weight_sum / particles.size();
@@ -187,7 +183,7 @@ double ParticleFilter::estimate() const {
     double robust_weight_sum = 0.0;
 
     for (const auto& p : particles) {
-        if (p.weight >= 0.8 * avg_weight) {  // soglia: metà del peso medio
+        if (p.weight >= 0.8 * avg_weight) {  
             robust_estimate += p.weight * p.z;
             robust_weight_sum += p.weight;
         }
@@ -196,7 +192,7 @@ double ParticleFilter::estimate() const {
     if (robust_weight_sum > 0.0)
         return robust_estimate / robust_weight_sum;
     else
-        return 0.0;  // fallback (non dovrebbe succedere spesso)
+        return 0.0;  
 
 
 
