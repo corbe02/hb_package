@@ -42,6 +42,7 @@ pip install neurokit2
 ```bash
 roslaunch hb_package signal.launch
 ```
+It shows you original and noisy signal, then once you close the plot it starts publishing.
 
 2. **Start the particle filter node:**
 
