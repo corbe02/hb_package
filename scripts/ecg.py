@@ -67,14 +67,14 @@ for i in range(1, len(t)):
     theta[i] = np.arctan2(y[i],x[i])
     alpha = 1 - np.sqrt(x[i]**2+y[i]**2)
 
-    z0 = A * np.sin(2*np.pi*f2*t[i])
+    #z0 = A * np.sin(2*np.pi*f2*t[i]) #se voglio escludere la respirazione
 
     dz_term = 0.0
     for j in range(len(theta_i)):
         delta_theta = (theta[i] - theta_i[j] + np.pi) % (2*np.pi) - np.pi
         dz_term += a[j] * delta_theta * np.exp(-delta_theta**2 / (2 * b[j]**2))
 
-    dz = -dz_term - (z[i-1] - z0)
+    dz = -dz_term #- (z[i-1] - z0)
     z[i] = z[i-1] + dz * dt
     #z = -z
 

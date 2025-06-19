@@ -12,8 +12,9 @@
 
 class ParticleFilter{
 public:
-    ParticleFilter(ros::NodeHandle &nh, int numParticles, double initMean, double initStd);
+    ParticleFilter(ros::NodeHandle &nh, int numParticles);
     void imageCallback(const std_msgs::Float32::ConstPtr &msg);
+    std::vector<Particle> particles;
 
     
 private:
@@ -23,19 +24,12 @@ private:
     ros::Subscriber image_sub_; 
     std::ofstream log_file;
 
-    std::vector<Particle> particles;
+    
     int N;
     double processNoise;
-    double measNoise;
-    double meanInit, stdInit;
     double measurementNoise;
-    double ampMean;
-    double ampStd;
-    double freqMean;
-    double freqStd;
     double samplingRate;
-    double f_noise;
-    double A_noise;
+
 
     void init();
     void normalizeWeights();
