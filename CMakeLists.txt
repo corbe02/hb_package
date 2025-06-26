@@ -35,7 +35,7 @@ include_directories(
 ## Crea l'eseguibile C++ (main.cpp e particle_filter.cpp)
 add_executable(particle_filter_node
   src/main.cpp
-  src/particle_filter.cpp
+  src/ParticleFilter.cpp
   src/utils.cpp
 )
 

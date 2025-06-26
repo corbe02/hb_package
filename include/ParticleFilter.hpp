@@ -19,23 +19,23 @@ public:
     
 private:
 
-    ros::Publisher pub;
+    ros::Publisher pub_;
     ros::NodeHandle private_nh_;         
     ros::Subscriber image_sub_; 
-    std::ofstream log_file;
+    std::ofstream log_file_;
 
     
-    int N;
-    double processNoise;
-    double measurementNoise;
-    double samplingRate;
+    int N_;
+    double process_noise_;
+    double measurement_noise_;
+    double sampling_rate_;
 
 
     void init();
     void normalizeWeights();
     void resample();
 
-    void predict(double processNoise);
+    void predict();
     void updateWeights(double measurement, double measNoiseStd);
     double estimate() const;
 };
