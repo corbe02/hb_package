@@ -1,4 +1,6 @@
 <launch>
-    <node pkg="hb_package" name="ecg_simulator_plotter" type="ecg_plotter_node.py" output="screen">
-    </node>
+  <node pkg="hb_package" type="ecg_plotter_node.py" name="ecg_simulator_plotter" output="screen">
+    <param name="features_file" value="/home/corbe/heart_ws/src/heart_pkg/positions/tracked_features4.txt"/>
+    <param name="rank" value="0"/>
+  </node>
 </launch>

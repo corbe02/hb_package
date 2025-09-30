@@ -20,17 +20,18 @@ theta_r = 0
 theta_s = 1/12*np.pi
 theta_t = 1/2*np.pi
 
-a_p = 1.2
-a_q =  -5.0
-a_r = 30.0
-a_s = -7.5
-a_t = 0.75
+a_p = 1.2*100/3
+a_q =  -5.0*100/3
+a_r = 30.0*100/3
+a_s = -7.5*100/3
+a_t = 0.75*100/3
 
 b_p = 0.25
 b_q =  0.1
 b_r = 0.1
 b_s = 0.1
 b_t = 0.4
+
 
 
 theta_i = np.array([theta_p, theta_q, theta_r, theta_s, theta_t])
@@ -78,7 +79,7 @@ for i in range(1, len(t)):
     z[i] = z[i-1] + dz * dt
     #z = -z
 
-z = z / np.max(np.abs(z)) * 1.0  # per normalizzare il picco massimo a 1 mV
+#z = z / np.max(np.abs(z)) * 1.0  # per normalizzare il picco massimo a 1 mV
 
 
 plt.figure(figsize=(12,4))
@@ -89,6 +90,3 @@ plt.grid(True)
 plt.legend()
 plt.tight_layout()
 plt.show()
-
-
-

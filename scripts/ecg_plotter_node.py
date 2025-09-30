@@ -1,192 +1,202 @@
-# #!/usr/bin/env python3
-# import rospy
-# import neurokit2 as nk
-# import matplotlib.pyplot as plt
-# from std_msgs.msg import Float32
-# import time
-# import numpy as np
-
-# def ecg_node():
-#     rospy.init_node('ecg_simulator_plotter', anonymous=True)
-#     ecg_pub = rospy.Publisher('ecg_signal', Float32, queue_size=10)
-
-#     try:
-#         duration = 5  # secondi
-#         sampling_rate = 60 # Hz
-#         ecg = nk.ecg_simulate(duration=duration, sampling_rate=sampling_rate, method="ecgsyn")
-#         t = np.linspace(0, duration, len(ecg))
-
-#         mean = np.mean(ecg)
-#         std = np.std(ecg)
-#         print(mean)
-#         print(std)
-
-#         noise_std = 0.05 
-#         noise = np.random.normal(loc=0.0, scale=noise_std, size=len(ecg))
-#         noisy_heartbeat = ecg + noise
-
-#         # # NOISE ADDITION
-#         # # 1. Low-frequency drift
-#         # drift = 0.2 * np.sin(2 * np.pi * 0.5 * t)
-
-#         # # 2. Laplace noise
-#         # laplace_noise = np.random.laplace(loc=0.0, scale=0.1, size=t.shape)
-
-#         # # 3. Impulse noise
-#         # impulses = np.zeros_like(t)
-#         # impulse_indices = np.random.choice(len(t), size=10, replace=False)
-#         # impulses[impulse_indices] = np.random.uniform(-1, 1, size=10)
-
-#         # # 4. Multiplicative noise
-#         # multiplicative_envelope = 1 + 0.1 * np.random.randn(*t.shape)
-
-#         # # Final noisy signal
-#         # noisy_heartbeat = (ecg + drift + laplace_noise + impulses) * multiplicative_envelope
-
-#         plt.figure(figsize=(12, 5))
-#         plt.plot(t, ecg, label="ECG originale", alpha=0.7)
-#         plt.plot(t, noisy_heartbeat, label="ECG con rumore", alpha=0.7)
-#         plt.title("Confronto tra ECG originale e con rumore")
-#         plt.xlabel("Tempo (s)")
-#         plt.ylabel("Ampiezza")
-#         plt.legend()
-#         plt.grid(True)
-#         plt.tight_layout()
-#         plt.show()
-
-#         # Pubblicazione su ROS
-#         rate = 60
-#         sleep_time = 1.0 / rate
-#         rospy.loginfo(f"Lunghezza del segnale ECG: {len(ecg)}, Frequenza di pubblicazione: {rate} Hz")
-
-#         for i, sample in enumerate(noisy_heartbeat):
-#             if rospy.is_shutdown():
-#                 rospy.loginfo("Ricevuto segnale di shutdown, terminando la pubblicazione.")
-#                 break
-#             ecg_msg = Float32()
-#             ecg_msg.data = sample
-#             ecg_pub.publish(ecg_msg)
-#             rospy.loginfo(f"Pubblicato campione {i}: {sample}")
-#             time.sleep(sleep_time)
-
-#         rospy.loginfo("Pubblicazione del segnale ECG completata.")
-        
-#     except Exception as e:
-#         rospy.logerr(f"Si è verificato un errore: {e}")
-
-# if __name__ == '__main__':
-#     try:
-#         ecg_node()
-#     except Exception as e:
-#         rospy.logerr(f"Si è verificato un errore: {e}")
-
 #!/usr/bin/env python3
+
 import rospy
 from std_msgs.msg import Float32
 import numpy as np
+import re
 import matplotlib.pyplot as plt
+from scipy.signal import butter, filtfilt, detrend
+from sklearn.decomposition import PCA
+# Non abbiamo bisogno di mpl_toolkits o rfft in questo nodo di pubblicazione, 
+# ma manteniamo le importazioni essenziali per l'elaborazione.
 
-def generate_ecg_signal(T_max=10, fs=60):
-    """Genera il segnale ECG sintetico usando il modello di McSharry."""
-    theta_p = -1/3*np.pi
-    theta_q =  -1/12*np.pi
-    theta_r = 0
-    theta_s = 1/12*np.pi
-    theta_t = 1/2*np.pi
+# --- Parametri Globali ---
+FILENAME = "/home/corbe/heart_ws/src/heart_pkg/positions/tracked_features5.txt"
+FS = 60 # Frequenza di campionamento in Hz
+TOPIC_NAME = "/ecg_signal"
 
-    a_p = 1.2
-    a_q =  -5.0
-    a_r = 30.0
-    a_s = -7.5
-    a_t = 0.75
+# ----------------------- 1. Funzioni di Supporto (Parsing ed Estrazione) -----------------------
 
-    b_p = 0.25
-    b_q =  0.1
-    b_r = 0.1
-    b_s = 0.1
-    b_t = 0.4
+def parse_file(fname):
+    """Legge il file di coordinate e restituisce un dizionario {PointID: [(x, y, z), ...]}."""
+    data = {}
+    try:
+        with open(fname, 'r') as f:
+            content = f.read()
+    except FileNotFoundError:
+        rospy.logerr(f"File non trovato: {fname}")
+        return data
 
-    theta_i = np.array([theta_p, theta_q, theta_r, theta_s, theta_t])
-    a = np.array([a_p, a_q, a_r, a_s, a_t])
-    b = np.array([b_p, b_q, b_r, b_s, b_t])
+    blocks = re.split(r'(?=PointID:\d+)', content)
+    for block in blocks:
+        if not block.strip():
+            continue
+        # Usa re.DOTALL (re.S) per far matchare il punto (.) anche con newline
+        m = re.match(r'PointID:(\d+).*?History:((?:\([^)]+\))+)', block, flags=re.S)
+        if not m:
+            continue
+        pid = int(m.group(1))
+        history_str = m.group(2)
+        triplets = re.findall(r'\(([^)]+)\)', history_str)
+        coords = []
+        for t in triplets:
+            parts = [p.strip() for p in t.split(',')]
+            if len(parts) != 3:
+                continue
+            try:
+                x, y, z = map(float, parts)
+                coords.append((x, y, z))
+            except ValueError:
+                rospy.logwarn(f"Salto un tripletto non valido in PointID {pid}.")
+                continue
+        if coords:
+            data[pid] = coords
+    
+    if not data:
+        rospy.logwarn("Nessun dato di feature valido trovato.")
+    return data
 
-    t = np.linspace(0, T_max, int(T_max*fs))
-    x = np.zeros_like(t)
-    y = np.zeros_like(t)
-    theta = np.zeros_like(t)
-    z = np.zeros_like(t)
 
-    x[0] = 0.0
-    y[0] = 1.0
+def extract_signal_pca(coords, fs=60, n_frames=100):
+    """
+    Estrae il segnale 1D dal movimento 3D usando PCA e lo filtra 
+    nella banda tipica del battito (0.5 Hz - 4 Hz).
+    """
+    # 1. PCA per stimare direzione principale (sui primi n_frames per robustezza)
+    n = min(len(coords), n_frames)
+    data = np.array(coords[:n])
+    pca = PCA(n_components=1)
+    pca.fit(data)
+    dir_vec = pca.components_[0]
 
-    alpha = 1 - np.sqrt(x[0]**2 + y[0]**2)
-    omega = 2*np.pi  # 1 Hz (frequenza cardiaca)
-    dt = t[1] - t[0]
+    # 2. Proiezione di tutte le coordinate sulla direzione principale
+    projected = np.array(coords) @ dir_vec
 
-    for i in range(1, len(t)):
-        dx = alpha * x[i-1] - omega * y[i-1]
-        dy = alpha * y[i-1] + omega * x[i-1]
+    # 3. Detrend + filtro passa-banda (HR: 0.5 Hz - 4 Hz)
+    projected_detr = detrend(projected)
+    
+    low, high = 0.5, 4.0 # Frequenza cardiaca tipica (30 BPM - 240 BPM)
+    nyquist_freq = fs / 2
+    
+    try:
+        b, a = butter(3, [low/nyquist_freq, high/nyquist_freq], btype="band")
+        # Applica il filtro senza ritardo di fase
+        filtered = filtfilt(b, a, projected_detr) 
+    except ValueError as e:
+        rospy.logerr(f"[ERRORE filtro] {e}. Restituisco solo segnale detrend.")
+        filtered = projected_detr
 
-        x[i] = x[i-1] + dx * dt
-        y[i] = y[i-1] + dy * dt
+    return filtered
 
-        theta[i] = np.arctan2(y[i], x[i])
-        alpha = 1 - np.sqrt(x[i]**2 + y[i]**2)
+def rescale_signal(signal, target_min=-0.06, target_max=0.01):
+    """
+    Riscala un array NumPy dal suo range attuale al range target [target_min, target_max].
+    """
+    # 1. Calcola il Min e Max attuali del segnale
+    min_original = np.min(signal)
+    max_original = np.max(signal)
+    
+    # 2. Evita divisione per zero nel caso di segnale piatto
+    if max_original - min_original == 0:
+        rospy.logwarn("Il segnale è piatto; non può essere riscalato dinamicamente.")
+        return np.full_like(signal, (target_min + target_max) / 2) # Restituisce il valore medio
 
-        dz_term = 0.0
-        for j in range(len(theta_i)):
-            delta_theta = (theta[i] - theta_i[j] + np.pi) % (2 * np.pi) - np.pi
-            dz_term += a[j] * delta_theta * np.exp(-delta_theta**2 / (2 * b[j]**2))
+    # 3. Applicazione della formula Min-Max Scaling
+    # Normalizzazione [0, 1]
+    normalized_signal = (signal - min_original) / (max_original - min_original)
+    
+    # Riscalatura al target [target_min, target_max]
+    scaled_signal = normalized_signal * (target_max - target_min) + target_min
+    
+    # Debug per verifica
+    rospy.loginfo(f"Riscalatura completata. Nuovo range: [{np.min(scaled_signal):.4f}, {np.max(scaled_signal):.4f}]")
+    
+    return scaled_signal
 
-        dz = -dz_term
-        z[i] = z[i-1] + dz * dt
+# ----------------------- 2. Funzione Nodo ROS -----------------------
 
-    # Normalizza l’ECG al range [-1,1]
-    z = z / np.max(np.abs(z))
+def ecg_publisher_node(signal, fs):
+    """
+    Pubblica i campioni del segnale estratto sul topic ROS una sola volta.
+    """
+    if not signal.size:
+        rospy.logerr("Impossibile pubblicare: il segnale è vuoto.")
+        return
 
-    return t, z
+    pub = rospy.Publisher(TOPIC_NAME, Float32, queue_size=10)
+    
+    # Imposta il rate di pubblicazione al rate di campionamento originale (FS)
+    rate = rospy.Rate(fs) 
 
-def ecg_publisher_node():
-    rospy.init_node('ecg_mcsharry_publisher', anonymous=True)
-    pub = rospy.Publisher('ecg_signal', Float32, queue_size=10)
+    rospy.loginfo(f"Avvio pubblicazione singola del segnale su {TOPIC_NAME} a {fs} Hz.")
+    
+    for i, sample_value in enumerate(signal):
+        if rospy.is_shutdown():
+            break
 
-    fs = 60  # frequenza campionamento
-    T_max = 10  # durata in secondi
+        msg = Float32()
+        msg.data = float(sample_value)
+        pub.publish(msg)
 
-    t, ecg_signal = generate_ecg_signal(T_max, fs)
+        # Debug: logga ogni 1 secondo (60 campioni a 60 Hz)
+        if i % fs == 0:
+            rospy.logdebug(f"Pubblicato campione {i}: {sample_value:.4f}")
 
-    # Aggiungi rumore gaussiano al segnale
-    noise_std = 0.01
-    noise = np.random.normal(0, noise_std, size=ecg_signal.shape)
-    noisy_ecg_signal = ecg_signal + noise
+        rate.sleep()
+    
+    rospy.loginfo("Segnale pubblicato una sola volta. Nodo bloccato.")
 
-    # Plot del segnale originale e rumoroso
+
+
+# ----------------------- 3. MAIN (Inizializzazione e Flusso Dati) -----------------------
+
+if __name__ == "__main__":
+    rospy.init_node('ecg_signal_generator', anonymous=True)
+    
+    rospy.loginfo("Fase 1: Caricamento e Processamento Dati 3D.")
+    
+    # 1. Carica e processa i dati
+    data = parse_file(FILENAME)
+    
+    if not data:
+        rospy.logerr("Impossibile procedere: Dati non disponibili.")
+        exit()
+
+    # 2. Estrazione del segnale 
+    first_pid = list(data.keys())[0]
+    coords = data[first_pid]
+    
+    # first_proj è il segnale "ECG" filtrato
+    first_proj = extract_signal_pca(coords, fs=FS, n_frames=100)
+    
+    rospy.loginfo(f"Segnale estratto originale. Range: [{np.min(first_proj):.4f}, {np.max(first_proj):.4f}]")
+
+    # --- NUOVO: RISCALATURA DEL SEGNALE ---
+    
+    # Target: da -0.06 a 0.01
+    TARGET_MIN = -0.06
+    TARGET_MAX = 0.01
+    
+    # Riscala il segnale per l'ingresso del tuo Particle Filter
+    first_proj_scaled = rescale_signal(first_proj, TARGET_MIN, TARGET_MAX)
+    
+    rospy.loginfo(f"Fase 2: Segnale riscalato pronto per la pubblicazione. Lunghezza {len(first_proj_scaled)} campioni.")
+    # --- PLOT DEL SEGNALE PRIMA DELLA PUBBLICAZIONE ---
     plt.figure(figsize=(12, 5))
-    plt.plot(t, ecg_signal, label='ECG sintetico originale')
-    plt.plot(t, noisy_ecg_signal, label='ECG sintetico con rumore', alpha=0.7)
-    plt.title('Segnale ECG sintetico (modello McSharry)')
-    plt.xlabel('Tempo [s]')
-    plt.ylabel('Ampiezza')
-    plt.legend()
+    plt.plot(np.arange(len(first_proj_scaled)) / FS, first_proj_scaled, color='orange', label='ECG (scaled)')
+    plt.xlabel("Time [s]")
+    plt.ylabel("Amplitude")
+    plt.title("Segnale ECG filtrato e riscalato")
     plt.grid(True)
+    plt.legend()
     plt.tight_layout()
     plt.show()
 
-    rate = rospy.Rate(fs)
-    rospy.loginfo("Inizio pubblicazione segnale ECG sintetico su 'ecg_signal'")
-
-    i = 0
-    while not rospy.is_shutdown() and i < len(noisy_ecg_signal):
-        msg = Float32()
-        msg.data = noisy_ecg_signal[i]
-        pub.publish(msg)
-        i += 1
-        rate.sleep()
-
-    rospy.loginfo("Fine pubblicazione segnale ECG.")
-
-if __name__ == '__main__':
+    # 3. Pubblica il segnale riscalato su ROS
     try:
-        ecg_publisher_node()
+        # Nota: usiamo first_proj_scaled invece di first_proj
+        ecg_publisher_node(first_proj_scaled, FS) 
     except rospy.ROSInterruptException:
         pass
+    finally:
+        rospy.loginfo("Nodo di pubblicazione terminato.")

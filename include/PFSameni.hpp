@@ -1,20 +1,20 @@
-#ifndef PARTICLE_FILTER_H
-#define PARTICLE_FILTER_H
+#ifndef PFSAMENI_H
+#define PFSAMENI_H
 
 #include <ros/ros.h>
 #include <std_msgs/Float32.h>
 #include <vector>
-#include "particle.hpp"
+#include "particleSameni.hpp"
 #include "utils.hpp"
 #include <fstream>
 
 
 
-class ParticleFilter{
+class PFSameni{
 public:
-    ParticleFilter(ros::NodeHandle &nh, int numParticles);
+    PFSameni(ros::NodeHandle &nh, int numParticles);
     void imageCallback(const std_msgs::Float32::ConstPtr &msg);
-    std::vector<Particle> particles;
+    std::vector<ParticleSameni> particles;
 
     
 private:
@@ -41,4 +41,4 @@ private:
     double estimate() const;
 };
 
-#endif // PARTICLE_FILTER_H
+#endif // PFSAMENI_H

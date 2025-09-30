@@ -1,4 +1,4 @@
-#include "ParticleFilter.hpp"
+#include "PFSameni.hpp"
 #include "utils.hpp"
 #include <fstream>
 
@@ -14,38 +14,40 @@ Questo processo viene ripetuto a ogni passo (prediction → update → resamplin
 
 // image_transport::Publisher OpticalFlowPose::image_pub_;
 
-ParticleFilter::ParticleFilter(ros::NodeHandle &nh, int numParticles)
+PFSameni::PFSameni(ros::NodeHandle &nh, int numParticles)
     : private_nh_(nh),
       N_(numParticles),
-      process_noise_(0.0015), //0.015
-      measurement_noise_(0.004), // 0.004
+      process_noise_(0.0005),
+      measurement_noise_(0.001),
       sampling_rate_(60)
 {
-
     init();
 
-    image_sub_ = private_nh_.subscribe("ecg_signal", 1, &ParticleFilter::imageCallback, this);
+    image_sub_ = private_nh_.subscribe("ecg_signal", 1, &PFSameni::imageCallback, this);
 
-    log_file_.open("/tmp/particle_filter_log.csv");
-
-    // for (const auto& p : particles) {
-    // ROS_INFO_STREAM("init particle: x=" << p.x << ", y=" << p.y << ", z=" << p.z);
-    // }
+    // Apri il file in scrittura, sovrascrivendo eventuali dati precedenti
+    log_file_.open("/tmp/particle_filter_log.csv", std::ios::out);
+    if (!log_file_.is_open()) {
+        ROS_ERROR("Impossibile aprire il file di log!");
+    } else {
+        // Scrivi l'header del CSV
+        log_file_ << "time,z,est\n";
+        log_file_.flush();  // forza la scrittura su disco
+    }
 
     pub_ = nh.advertise<std_msgs::Float32>("/ecg_denoised", 1);
 }
 
 
 
-void ParticleFilter::init() {
+void PFSameni::init() {
     particles.clear();
     particles.reserve(N_);
 
     for (int i = 0; i < N_; ++i) {
         particles.emplace_back(
-            utils::sampleNormal(0.0, 0.7),   // x
-            utils::sampleNormal(1.0, 0.7),   // y
-            utils::sampleNormal(0.0, 1),   // z
+            utils::sampleNormal(0.0, 0.01),   // theta
+            utils::sampleNormal(0.0,0.0001),   // z
 
             utils::sampleNormal(1.2, 0.001),  // a_p
             utils::sampleNormal(-5.0, 0.002), // a_q
@@ -59,107 +61,67 @@ void ParticleFilter::init() {
             utils::sampleNormal(0.1, 0.001), // b_s
             utils::sampleNormal(0.4, 0.002), // b_t
 
-            utils::sampleNormal(2 * M_PI, 0.5), // omega
+            utils::sampleNormal(2 * M_PI, 0.01),  // omega
             1.0 / N_  // weight
         );
     }
 }
-/*
-void ParticleFilter::init()
-{
-    for (std::size_t i = 0; i < particles.size(); ++i) 
-    {
-        double x = utils::sampleNormal(0.0, 0.1);
-        double y = utils::sampleNormal(1.0, 0.1);
-        double z = utils::sampleNormal(0.0, 0.1);
 
-        // Parametri delle onde PQRST: inizializzati attorno ai valori di McSharry
-        double a_p = utils::sampleNormal(1.2, 0.01);
-        double a_q = utils::sampleNormal(-5.0, 0.02);
-        double a_r = utils::sampleNormal(30.0, 0.05);
-        double a_s = utils::sampleNormal(-7.5, 0.02);
-        double a_t = utils::sampleNormal(0.75, 0.005);
 
-        double b_p = utils::sampleNormal(0.25, 0.002);
-        double b_q = utils::sampleNormal(0.1, 0.001);
-        double b_r = utils::sampleNormal(0.1, 0.001);
-        double b_s = utils::sampleNormal(0.1, 0.001);
-        double b_t = utils::sampleNormal(0.4, 0.002);
-
-        double omega = utils::sampleNormal(2 * M_PI, 0.1);
-
-        double weight = 1.0 / N;
-        particles[i] = Particle(x, y, z,
-                                a_p, a_q, a_r, a_s, a_t,
-                                b_p, b_q, b_r, b_s, b_t,
-                                omega, weight);
-        // ROS_INFO_STREAM("z: " << z << ", x: " << x);
-    }
-}
-*/
-
-void ParticleFilter::predict()
+void PFSameni::predict()
 {
     double dt = 1.0 / sampling_rate_;
-    for (const auto &p : particles)
-    {
-        ROS_INFO_STREAM("predict particle: x=" << p.x << ", y=" << p.y << ", z=" << p.z);
-    }
+    // for (const auto &p : particles)
+    // {
+    //     ROS_INFO_STREAM("predict particle: x=" << p.x << ", y=" << p.y << ", z=" << p.z);
+    // }
 
     for (auto &p : particles)
     {
-        // ROS_INFO_STREAM("y: " << p.y << ", x: " << p.x);
-        double alpha = 1.0 - std::sqrt(p.x * p.x + p.y * p.y);
-
-        double dx = alpha * p.x - p.omega * p.y;
-        double dy = alpha * p.y + p.omega * p.x;
-
-        p.x += dx * dt;
-        p.y += dy * dt;
-
-        double theta = std::atan2(p.y, p.x);
-
+        
         double theta_i[5] = {-M_PI / 3, -M_PI / 12, 0, M_PI / 12, M_PI / 2};
         double a[5] = {p.a_p, p.a_q, p.a_r, p.a_s, p.a_t};
         double b[5] = {p.b_p, p.b_q, p.b_r, p.b_s, p.b_t};
-
         double dz_term = 0.0;
         for (int j = 0; j < 5; ++j)
         {
-            double delta_theta = theta - theta_i[j];
+            double delta_theta = p.theta - theta_i[j];
             delta_theta = std::fmod(delta_theta + M_PI, 2 * M_PI);
             if (delta_theta < 0)
                 delta_theta += 2 * M_PI;
             delta_theta -= M_PI;
 
-            dz_term += a[j] * delta_theta * std::exp(-delta_theta * delta_theta / (2 * b[j] * b[j]));
+            dz_term -= a[j] * dt*  delta_theta * std::exp(-delta_theta * delta_theta / (2 * b[j] * b[j]));
         }
 
-        double dz = -dz_term;
+        p.z = p.z + dz_term;  
+        p.theta += p.omega * dt;
 
-        p.z += dz * dt;
-
-
+        p.theta = std::fmod(p.theta + M_PI, 2 * M_PI);
+        if (p.theta < 0)
+            p.theta += 2 * M_PI;
+        p.theta -= M_PI;
 
         // rumore di processo
-        p.x += utils::sampleNormal(0.0, process_noise_);
-        p.y += utils::sampleNormal(0.0, process_noise_);
+        p.theta += utils::sampleNormal(0.0, process_noise_);
         p.z += utils::sampleNormal(0.0, process_noise_);
     }
 }
 
 
-void ParticleFilter::updateWeights(double measurement, double measNoiseStd)
+void PFSameni::updateWeights(double measurement, double measNoiseStd)
 {
     for (auto &p : particles)
     {
         double predicted_z = p.z;
-        double likelihood = utils::normalPDF(measurement, predicted_z, measNoiseStd);
+        
+        double likelihood = utils::studentTPDF(measurement, predicted_z, measNoiseStd);
+        //double likelihood = utils::normalPDF(measurement, predicted_z, measNoiseStd);
         p.weight *= likelihood;
     }
 }
 
-void ParticleFilter::normalizeWeights()
+void PFSameni::normalizeWeights()
 {
     double sum = 0.0;
     for (const auto &p : particles)
@@ -176,9 +138,9 @@ void ParticleFilter::normalizeWeights()
     }
 }
 
-void ParticleFilter::resample()
+void PFSameni::resample()
 {
-    std::vector<Particle> newParticles;
+    std::vector<ParticleSameni> newParticles;
     newParticles.reserve(N_); //// riservo spazio per N elementi (creo un vettore in cui andranno le particelle campionate)
 
     std::vector<double> weights;
@@ -198,7 +160,7 @@ void ParticleFilter::resample()
     particles = std::move(newParticles); // Rimpiazzo il vecchio vettore particles con il nuovo vettore newParticles --> top per ottimizzare
 }
 
-double ParticleFilter::estimate() const
+double PFSameni::estimate() const
 {
 
     // IDea1 : faccio la media ponderata
@@ -239,7 +201,7 @@ double ParticleFilter::estimate() const
         return 0.0;
 }
 
-double ParticleFilter::computeESS() const {
+double PFSameni::computeESS() const {
     double sum_weights_sq = 0.0;
     for (const auto &p : particles) {
         sum_weights_sq += p.weight * p.weight;
@@ -250,7 +212,7 @@ double ParticleFilter::computeESS() const {
 
 
 
-void ParticleFilter::imageCallback(const std_msgs::Float32::ConstPtr &msg)
+void PFSameni::imageCallback(const std_msgs::Float32::ConstPtr &msg)
 {
     float z = msg->data;
 
@@ -268,7 +230,7 @@ void ParticleFilter::imageCallback(const std_msgs::Float32::ConstPtr &msg)
     normalizeWeights();
     // Passo 4: controllo degenerazione
     double ess = computeESS();
-    if (ess < 0.3 * N_) { // soglia tipica: 50% o anche 0.3 * N_
+    if (ess < 0.5 * N_) { // soglia tipica: 50% o anche 0.3 * N_
         ROS_INFO_STREAM("Degenerazione: " << ess);
         resample();
     }

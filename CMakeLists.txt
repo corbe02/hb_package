@@ -36,6 +36,7 @@ include_directories(
 add_executable(particle_filter_node
   src/main.cpp
   src/ParticleFilter.cpp
+  src/PFSameni.cpp
   src/utils.cpp
 )
 

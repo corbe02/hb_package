@@ -31,6 +31,20 @@ namespace utils
         return coeff * std::exp(exponent);
     }
 
+    double studentTPDF(double x, double mu, double sigma, double nu)
+    {
+        // x: observed value
+        // mu: mean (usually 0)
+        // sigma: scale (similar to std dev)
+        // nu: degrees of freedom, default 5 (heavier tails than Gaussian)
+        
+        // Calculate the Student's t PDF for univariate case:
+        double term1 = std::tgamma((nu + 1.0) / 2.0) / ( std::tgamma(nu / 2.0) * std::sqrt(nu * M_PI) * sigma );
+        double term2 = 1.0 + (1.0 / nu) * std::pow((x - mu) / sigma, 2);
+        double pdf = term1 * std::pow(term2, -(nu + 1.0) / 2.0);
+        return pdf;
+    }
+
     // serve per estrarre N campioni discreti secondo una distribuzione ponderata (non uniforme), usando una discrete distribution
     //  Hai una lista di pesi weights (es. [0.1, 0.3, 0.6]) → ogni peso rappresenta quanto è "probabile" ogni indice.
     //  estraggo solo gli indici non i valori associati

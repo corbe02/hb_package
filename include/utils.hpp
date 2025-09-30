@@ -16,6 +16,8 @@ namespace utils
     // Resampling: restituisce N indici da una distribuzione discreta data dai pesi
     std::vector<int> sampleDiscrete(const std::vector<double> &weights, int N);
 
+    double studentTPDF(double x, double mu, double sigma, double nu = 5.0);
+
 }
 
 #endif
