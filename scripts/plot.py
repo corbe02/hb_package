@@ -8,54 +8,63 @@ import numpy as np
 filename = "/tmp/particle_filter_log.csv"
 df = pd.read_csv(filename)
 
-# Assicurati che siano numerici
+# Conversione a numerico
 df["time"] = pd.to_numeric(df["time"], errors="coerce")
 df["z"] = pd.to_numeric(df["z"], errors="coerce")
 df["est"] = pd.to_numeric(df["est"], errors="coerce")
+df = df.dropna(subset=["time", "z", "est"]).reset_index(drop=True)
 
-# Controllo rapido
-print(df.dtypes)
-print(df.head())
+# ------------------- 2. Ricostruzione tempo coerente -------------------
+FS = 20.0  # frequenza reale di campionamento
 
-# ------------------- 2. Parametri -------------------
-min_height = df["est"].max() * 0.2  # soglia per picchi più alti
-fs = 1 / np.median(np.diff(df["time"]))  # frequenza di campionamento approssimativa
-min_distance_samples = int(fs * 0.3)  # distanza minima tra picchi 0.3s
+# Se i timestamp non sono affidabili (es. UNIX time), li ricreiamo da zero:
+duration_s = len(df) / FS
+df["time_fixed"] = np.arange(len(df)) / FS
 
-# ------------------- 3. Trova tutti i picchi -------------------
-peaks, _ = find_peaks(df["est"], distance=min_distance_samples, height=min_height)
+print(f"Durata segnale ricostruita: {duration_s:.1f} s ({len(df)} campioni a {FS} Hz)")
 
-# ------------------- 4. Finestra centrale 30s -------------------
+# ------------------- 3. Parametri picchi -------------------
+min_height = df["est"].std() * 0.005  # soglia relativa
+
+   # soglia (20% del massimo)
+min_distance_samples = int(FS * 0.5)      # distanza minima (0.3 s → 200 bpm max)
+
+# ------------------- 4. Trova picchi -------------------
+peaks, properties = find_peaks(df["est"], distance=min_distance_samples, prominence=0.01)
+
+# ------------------- 5. Finestra centrale (30 s) -------------------
 window_sec = 30
-mid_time = (df["time"].iloc[0] + df["time"].iloc[-1]) / 2
-t0 = mid_time - window_sec / 2
-t1 = mid_time + window_sec / 2
+mid_time = df["time_fixed"].iloc[-1] / 2
+t0, t1 = mid_time - window_sec / 2, mid_time + window_sec / 2
 
-# Picchi nella finestra centrale
-peaks_central = peaks[(df["time"].iloc[peaks] >= t0) & (df["time"].iloc[peaks] < t1)]
+mask_central = (df["time_fixed"].iloc[peaks] >= t0) & (df["time_fixed"].iloc[peaks] < t1)
+peaks_central = peaks[mask_central]
 
-# Frequenza cardiaca nella finestra centrale
 hr_central = len(peaks_central) * (60 / window_sec)
 
-print(f"Intervallo centrale {t0:.1f}-{t1:.1f}s:")
-print(f"Numero di picchi rilevati: {len(peaks_central)}")
-print(f"Frequenza cardiaca stimata: HR ~ {hr_central:.1f} bpm")
+print(f"\n⏱ Intervallo centrale {t0:.1f}-{t1:.1f} s:")
+print(f"   Picchi rilevati: {len(peaks_central)}")
+print(f"   Frequenza cardiaca stimata: {hr_central:.1f} bpm\n")
 
-# ------------------- 5. Plot -------------------
-plt.figure(figsize=(12, 5))
-plt.plot(df["time"], df["z"], label="Z (raw)")
-plt.plot(df["time"], df["est"], label="Estimate", color="orange")
+# ------------------- 6. Plot -------------------
+plt.figure(figsize=(14, 6))
 
-# Picchi centrali evidenziati
-plt.plot(df["time"].iloc[peaks_central], df["est"].iloc[peaks_central], "rx", label="High Peaks (central)")
+plt.plot(df["time_fixed"], df["z"], label="Z (raw)", alpha=0.6)
+plt.plot(df["time_fixed"], df["est"], label="Estimate (Particle Filter)", color="orange", linewidth=1.2)
 
-# Evidenzia la finestra centrale sul plot
-plt.axvspan(t0, t1, color='yellow', alpha=0.2, label="30s Central Window")
+plt.plot(df["time_fixed"].iloc[peaks], df["est"].iloc[peaks], "kx", label="Tutti i picchi")
+plt.plot(df["time_fixed"].iloc[peaks_central], df["est"].iloc[peaks_central], "ro", markersize=6, label="Picchi (30s centrali)")
 
-plt.xlabel("Time [s]")
-plt.ylabel("Amplitude")
-plt.title("ECG Signal - Picchi nella finestra centrale")
+plt.axvspan(t0, t1, color='yellow', alpha=0.2, label="Finestra centrale (30 s)")
+
+plt.text(t1 + 1, np.max(df["est"]) * 0.8,
+         f"FS = {FS:.1f} Hz\nHR ≈ {hr_central:.1f} bpm",
+         fontsize=10, bbox=dict(facecolor='white', alpha=0.7, edgecolor='gray'))
+
+plt.xlabel("Tempo [s]")
+plt.ylabel("Ampiezza")
+plt.title("Segnale ECG stimato dal Particle Filter")
 plt.legend()
-plt.grid(True)
+plt.grid(True, linestyle="--", alpha=0.5)
 plt.tight_layout()
 plt.show()
