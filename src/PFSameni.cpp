@@ -19,7 +19,7 @@ PFSameni::PFSameni(ros::NodeHandle &nh, int numParticles)
       N_(numParticles),
       process_noise_(0.0005),
       measurement_noise_(0.001),
-      sampling_rate_(20)
+      sampling_rate_(60)
 {
     init();
 

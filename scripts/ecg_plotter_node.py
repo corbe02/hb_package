@@ -8,8 +8,8 @@ from scipy.signal import butter, filtfilt, detrend
 from sklearn.decomposition import PCA
 
 # --- PARAMETRI GLOBALI ---
-FILENAME = "/home/corbe/heart_ws/src/heart_pkg/positions/tracked_features5.txt"
-FS = 20  # Frequenza di campionamento (Hz)
+FILENAME = "/home/altair/anna_ws/src/Heart_3d/positions/tracked_features2.txt"
+FS = 60  # Frequenza di campionamento (Hz)
 DURATION_S = 40  # Durata in secondi
 TOPIC_NAME = "/ecg_signal"
 
@@ -89,6 +89,7 @@ def extract_signal_pca_fixed(coords, fs=20, duration_s=40):
     nyquist_freq = fs / 2
     b, a = butter(2, [low / nyquist_freq, high / nyquist_freq], btype="band")
     filtered = filtfilt(b, a, projected_detr)
+    #filtered = projected_detr 
 
     return filtered
 
@@ -158,15 +159,17 @@ if __name__ == "__main__":
     # 2. Seleziona la prima feature valida
     first_pid = list(data.keys())[0]
     coords = data[first_pid]
-    rospy.loginfo(f"Feature ID {first_pid} con {len(coords)} campioni trovata.")
+    #rospy.loginfo(f"Feature ID {first_pid} con {len(coords)} campioni trovata.")
 
     # 3. Estrai il segnale filtrato
     first_proj = extract_signal_pca_fixed(coords, fs=FS, duration_s=DURATION_S)
-    rospy.loginfo(f"Segnale estratto: {len(first_proj)} campioni.")
+    #rospy.loginfo(f"Segnale estratto: {len(first_proj)} campioni.")
 
     # 4. Riscala per il particle filter
     TARGET_MIN, TARGET_MAX = -0.06, 0.01
     first_proj_scaled = rescale_signal(first_proj, TARGET_MIN, TARGET_MAX)
+
+    print(len(first_proj_scaled))
 
     # 5. Plot per verifica
     t = np.arange(len(first_proj_scaled)) / FS

@@ -15,7 +15,7 @@ df["est"] = pd.to_numeric(df["est"], errors="coerce")
 df = df.dropna(subset=["time", "z", "est"]).reset_index(drop=True)
 
 # ------------------- 2. Ricostruzione tempo coerente -------------------
-FS = 20.0  # frequenza reale di campionamento
+FS = 60.0  # frequenza reale di campionamento
 
 # Se i timestamp non sono affidabili (es. UNIX time), li ricreiamo da zero:
 duration_s = len(df) / FS
