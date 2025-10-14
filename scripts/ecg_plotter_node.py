@@ -57,7 +57,7 @@ def parse_file(fname):
 
 # ----------------------- 2. Estrazione segnale PCA + filtro -----------------------
 
-def extract_signal_pca_fixed(coords, fs=20, duration_s=40):
+def extract_signal_pca_fixed(coords, fs=60, duration_s=40):
     """
     Estrae un segnale ECG-like da coordinate 3D usando PCA.
     Restituisce un segnale filtrato e della lunghezza esatta: fs * duration_s.
@@ -101,7 +101,11 @@ def rescale_signal(signal, target_min=-0.06, target_max=0.01):
     Riscala un array NumPy dal suo range attuale al range target [target_min, target_max].
     """
     min_original = np.min(signal)
+    print("min e max")
+    print(min_original)
+
     max_original = np.max(signal)
+    print(max_original)
 
     if max_original - min_original == 0:
         rospy.logwarn("Segnale piatto; restituito valore medio costante.")
@@ -166,8 +170,9 @@ if __name__ == "__main__":
     #rospy.loginfo(f"Segnale estratto: {len(first_proj)} campioni.")
 
     # 4. Riscala per il particle filter
-    TARGET_MIN, TARGET_MAX = -0.06, 0.01
+    TARGET_MIN, TARGET_MAX = -0.04, 0.04
     first_proj_scaled = rescale_signal(first_proj, TARGET_MIN, TARGET_MAX)
+    #first_proj_scaled = first_proj
 
     print(len(first_proj_scaled))
 

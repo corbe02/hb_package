@@ -38,6 +38,7 @@ add_executable(particle_filter_node
   src/ParticleFilter.cpp
   src/PFSameni.cpp
   src/utils.cpp
+  src/PF_new_model.cpp
 )
 
 target_link_libraries(particle_filter_node
