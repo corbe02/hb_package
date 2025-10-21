@@ -1,6 +1,7 @@
 #include "ParticleFilter.hpp"  
 #include "PFSameni.hpp"
 #include "PF_new_model.hpp"
+#include "PF_nm2.hpp"
 #include <ros/ros.h>
 
 int main(int argc, char **argv) {

@@ -13,7 +13,7 @@ if "estimate_x" in df.columns:
 elif "estimate" in df.columns:
     est_col = "estimate"
 else:
-    raise ValueError("❌ Nessuna colonna di stima trovata nel CSV!")
+    raise ValueError("Nessuna colonna di stima trovata nel CSV!")
 
 # Conversione a numerico
 df["measurement"] = pd.to_numeric(df["measurement"], errors="coerce")

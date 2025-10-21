@@ -8,7 +8,7 @@ from scipy.signal import butter, filtfilt, detrend
 from sklearn.decomposition import PCA
 
 # --- PARAMETRI GLOBALI ---
-FILENAME = "/home/corbe/heart_ws/src/heart_pkg/positions/tracked_features2.txt"
+FILENAME = "/home/altair/anna_ws/src/Heart_3d/positions/tracked_features2.txt"
 FS = 60  # Frequenza di campionamento (Hz)
 DURATION_S = 40  # Durata in secondi
 TOPIC_NAME = "/ecg_signal"
@@ -161,7 +161,7 @@ if __name__ == "__main__":
         exit(1)
 
     # 2. Seleziona la prima feature valida
-    first_pid = list(data.keys())[3]
+    first_pid = list(data.keys())[9]
     coords = data[first_pid]
     #rospy.loginfo(f"Feature ID {first_pid} con {len(coords)} campioni trovata.")
 
