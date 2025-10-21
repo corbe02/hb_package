@@ -9,7 +9,8 @@ int main(int argc, char **argv) {
 
     //PFSameni pf(nh, 500);
     //ParticleFilter pf(nh, 200);
-    Particle_new pn(nh, 1000);
+    //Particle_new pn(nh, 700);
+    Particle_new2 pn(nh, 700);
 
 
     ros::spin();  

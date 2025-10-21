@@ -8,7 +8,7 @@ from scipy.signal import butter, filtfilt, detrend
 from sklearn.decomposition import PCA
 
 # --- PARAMETRI GLOBALI ---
-FILENAME = "/home/altair/anna_ws/src/Heart_3d/positions/tracked_features2.txt"
+FILENAME = "/home/corbe/heart_ws/src/heart_pkg/positions/tracked_features2.txt"
 FS = 60  # Frequenza di campionamento (Hz)
 DURATION_S = 40  # Durata in secondi
 TOPIC_NAME = "/ecg_signal"
@@ -43,7 +43,7 @@ def parse_file(fname):
                 continue
             try:
                 x, y, z = map(float, parts)
-                coords.append((x, y, z))
+                coords.append((x, y, z/10)) #proviamo a ridurre la z di dieci
             except ValueError:
                 rospy.logwarn(f"Tripletto non valido in PointID {pid}, salto.")
                 continue
@@ -161,7 +161,7 @@ if __name__ == "__main__":
         exit(1)
 
     # 2. Seleziona la prima feature valida
-    first_pid = list(data.keys())[0]
+    first_pid = list(data.keys())[3]
     coords = data[first_pid]
     #rospy.loginfo(f"Feature ID {first_pid} con {len(coords)} campioni trovata.")
 
@@ -171,8 +171,8 @@ if __name__ == "__main__":
 
     # 4. Riscala per il particle filter
     TARGET_MIN, TARGET_MAX = -0.04, 0.04
-    first_proj_scaled = rescale_signal(first_proj, TARGET_MIN, TARGET_MAX)
-    #first_proj_scaled = first_proj
+    #first_proj_scaled = rescale_signal(first_proj, TARGET_MIN, TARGET_MAX)
+    first_proj_scaled = first_proj
 
     print(len(first_proj_scaled))
 
